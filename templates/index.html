@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VisioNet 图片处理</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f8fafc; }
+        .container { max-width: 600px; margin-top: 40px; }
+        .img-preview { max-width: 100%; max-height: 300px; border-radius: 8px; box-shadow: 0 2px 8px #ccc; }
+        .drop-area {
+            border: 2px dashed #aaa;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            background: #fff;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        .drop-area.dragover { border-color: #007bff; background: #e3f2fd; }
+        .btn-group { width: 100%; }
+        .btn { min-width: 120px; margin: 0 8px 8px 0; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2 class="mb-4 text-center">VisioNet 图片处理</h2>
+    <div id="drop-area" class="drop-area">
+        <span id="drop-text">拖拽或粘贴图片到此，或点击选择</span>
+        <input type="file" id="file-input" accept="image/*" style="display:none">
+    </div>
+    <div class="mb-3 text-center">
+        <img id="img-preview" class="img-preview" style="display:none">
+    </div>
+    <div class="btn-group d-flex justify-content-center mb-3">
+        <button class="btn btn-primary" onclick="processImage('gray')">灰度</button>
+        <button class="btn btn-success" onclick="processImage('flip')">左右翻转</button>
+        <button class="btn btn-warning" onclick="processImage('blur')">模糊</button>
+    </div>
+    <div class="mb-3 text-center">
+        <img id="img-result" class="img-preview" style="display:none">
+    </div>
+</div>
+<script>
+const dropArea = document.getElementById('drop-area');
+const fileInput = document.getElementById('file-input');
+const imgPreview = document.getElementById('img-preview');
+const imgResult = document.getElementById('img-result');
+const dropText = document.getElementById('drop-text');
+let currentImage = null;
+
+// 拖拽上传
+['dragenter', 'dragover'].forEach(e => {
+    dropArea.addEventListener(e, ev => {
+        ev.preventDefault();
+        dropArea.classList.add('dragover');
+    });
+});
+['dragleave', 'drop'].forEach(e => {
+    dropArea.addEventListener(e, ev => {
+        ev.preventDefault();
+        dropArea.classList.remove('dragover');
+    });
+});
+dropArea.addEventListener('drop', ev => {
+    if (ev.dataTransfer.files.length) {
+        handleFile(ev.dataTransfer.files[0]);
+    } else if (ev.dataTransfer.items) {
+        for (let item of ev.dataTransfer.items) {
+            if (item.kind === 'file') {
+                handleFile(item.getAsFile());
+                break;
+            }
+        }
+    }
+});
+// 点击选择
+ dropArea.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => {
+    if (e.target.files.length) handleFile(e.target.files[0]);
+});
+// 粘贴上传
+window.addEventListener('paste', e => {
+    for (let item of e.clipboardData.items) {
+        if (item.type.startsWith('image')) {
+            handleFile(item.getAsFile());
+            break;
+        }
+    }
+});
+function handleFile(file) {
+    if (!file.type.startsWith('image')) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+        currentImage = e.target.result;
+        imgPreview.src = currentImage;
+        imgPreview.style.display = '';
+        imgResult.style.display = 'none';
+        dropText.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+}
+function processImage(action) {
+    if (!currentImage) return alert('请先上传图片');
+    imgResult.style.display = 'none';
+    fetch('/process', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({image: currentImage, action})
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.image) {
+            imgResult.src = data.image;
+            imgResult.style.display = '';
+        } else {
+            alert('处理失败');
+        }
+    });
+}
+</script>
+</body>
+</html>
